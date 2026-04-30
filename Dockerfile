@@ -19,7 +19,7 @@ RUN wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.s
 
 ENV PATH=/opt/conda/bin:$PATH
 
-RUN conda create -n nerfstudio python=3.10 -y
+RUN conda create -n nerfstudio python=3.10 -c conda-forge --override-channels -y
 
 SHELL ["conda", "run", "-n", "nerfstudio", "/bin/bash", "-c"]
 
