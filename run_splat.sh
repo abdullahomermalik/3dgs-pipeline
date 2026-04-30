@@ -1,8 +1,19 @@
 #!/bin/bash
 # run_splat.sh — process a video into a 3D Gaussian Splat .ply file.
+#
+# Prerequisite: setup.sh has been run on this pod.
+#
+# Usage:
+#   bash run_splat.sh
+#
+# Assumes input video at /workspace/input.mp4
 
 set -e
 set -u
+
+# Activate the conda env automatically — saves the client one step
+source /opt/conda/etc/profile.d/conda.sh
+conda activate nerfstudio
 
 INPUT_VIDEO="/workspace/input.mp4"
 PROJECT_DIR="/workspace/project"
@@ -18,7 +29,7 @@ if [ ! -f "$INPUT_VIDEO" ]; then
 fi
 
 if ! command -v ns-train &> /dev/null; then
-    echo "ERROR: nerfstudio not found. Is the conda env activated?"
+    echo "ERROR: nerfstudio not found. Did you run setup.sh first?"
     exit 1
 fi
 
