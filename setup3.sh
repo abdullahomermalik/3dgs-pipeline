@@ -38,7 +38,7 @@ fi
 echo ""
 echo "[2/5] Creating nerfstudio conda env (conda-forge only)..."
 if ! conda env list | grep -qE "^nerfstudio\s"; then
-    conda create -n nerfstudio python=3.8 -c conda-forge --override-channels -y
+    conda create -n nerfstudio python=3.8 pip -c conda-forge --override-channels -y
 else
     echo "Env 'nerfstudio' already exists — skipping."
 fi
