@@ -13,7 +13,7 @@
 set -e
 set -u
 
-# Force COLMAP and Qt to run headless (no display available on server)
+# Force Qt/COLMAP to run headless (no display on RunPod servers)
 export QT_QPA_PLATFORM=offscreen
 export DISPLAY=""
 
@@ -81,11 +81,14 @@ echo "  Output: ${EXPORT_DIR}/${NAME}.ply"
 echo ""
 
 # --- Step 1: COLMAP processing (extract frames + camera poses) ---
-echo "[1/3] Processing video with COLMAP..."
+# --no-gpu disables GPU SIFT which requires an OpenGL context unavailable
+# on headless servers — without this flag COLMAP crashes immediately.
+echo "[1/3] Processing video with COLMAP (CPU SIFT)..."
 ns-process-data video \
     --data "$INPUT_VIDEO" \
     --output-dir "$PROCESSED_DIR" \
-    --num-frames-target "$NUM_FRAMES"
+    --num-frames-target "$NUM_FRAMES" \
+    --no-gpu
 
 # --- Step 2: Train splatfacto ---
 echo ""
@@ -117,7 +120,6 @@ ns-export gaussian-splat \
     --load-config "$LATEST_CONFIG" \
     --output-dir "$TEMP_EXPORT"
 
-# nerfstudio's gaussian-splat exporter writes splat.ply.
 # Find whatever .ply got produced (defensive — in case the filename differs across versions)
 PRODUCED_PLY=$(find "$TEMP_EXPORT" -maxdepth 1 -name "*.ply" -type f | head -1)
 
