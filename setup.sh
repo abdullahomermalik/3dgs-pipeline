@@ -73,12 +73,15 @@ echo "[5/6] Installing tinycudann (this is the slow step, ~10-15 min)..."
 pip install ninja
 pip install git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
 
-# --- Step 6: Install nerfstudio ---
+# --- Step 6: Install nerfstudio + gdown ---
 echo ""
-echo "[6/6] Installing nerfstudio..."
+echo "[6/6] Installing nerfstudio and gdown..."
 pip install nerfstudio
+pip install gdown
 
-# Set up workspace structure
+# Set up workspace directories
+mkdir -p /workspace/videos
+mkdir -p /workspace/projects
 mkdir -p /workspace/exports
 
 echo ""
@@ -87,9 +90,11 @@ echo "  Setup complete!"
 echo "=========================================="
 echo ""
 echo "Next steps:"
-echo "  1. Upload your video to /workspace/input.mp4"
-echo "  2. Pull run_splat.sh:"
-echo "     wget https://raw.githubusercontent.com/abdullahomermalik/3dgs-pipeline/main/run_splat.sh"
-echo "  3. Run it:"
-echo "     bash run_splat.sh"
+echo "  1. Download a video:"
+echo "     bash download.sh \"<google-drive-url>\" <name>"
+echo ""
+echo "  2. Process it:"
+echo "     bash run_splat.sh <name>"
+echo ""
+echo "  3. Find your .ply in /workspace/exports/<name>.ply"
 echo ""
