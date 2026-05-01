@@ -34,9 +34,6 @@ if ! grep -q "/opt/conda/bin" ~/.bashrc; then
     echo 'export PATH="/opt/conda/bin:$PATH"' >> ~/.bashrc
 fi
 
-# Source .bashrc to pick up any new changes (as requested)
-source ~/.bashrc
-
 # --- Step 2: Create the conda env & activate it ---
 echo ""
 echo "[2/5] Creating nerfstudio conda env (conda-forge only)..."
