@@ -13,6 +13,10 @@
 set -e
 set -u
 
+# Force COLMAP and Qt to run headless (no display available on server)
+export QT_QPA_PLATFORM=offscreen
+export DISPLAY=""
+
 # --- Argument check ---
 if [ "$#" -ne 1 ]; then
     echo "Usage: bash run_splat.sh <name>"
