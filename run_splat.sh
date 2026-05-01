@@ -1,144 +1,114 @@
 #!/bin/bash
-# run_splat.sh — process a named video into a 3D Gaussian Splat .ply file.
+# setup.sh — one-time setup for the 3DGS pipeline.
+#
+# Run this ONCE per fresh RunPod pod, after launching with the template:
+#   runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04
 #
 # Usage:
-#   bash run_splat.sh <name>
-#
-# Example:
-#   bash run_splat.sh video1
-#
-# Expects video at /workspace/videos/<name>.mp4
-# Produces .ply at /workspace/exports/<name>.ply
+#   wget https://raw.githubusercontent.com/abdullahomermalik/3dgs-pipeline/main/setup.sh
+#   bash setup.sh
 
 set -e
 set -u
 
-# Force Qt/COLMAP to run headless (no display on RunPod servers)
-export QT_QPA_PLATFORM=offscreen
-export DISPLAY=""
+echo "=========================================="
+echo "  3DGS Pipeline — One-time Setup"
+echo "=========================================="
 
-# --- Argument check ---
-if [ "$#" -ne 1 ]; then
-    echo "Usage: bash run_splat.sh <name>"
-    echo "Example: bash run_splat.sh video1"
-    exit 1
+# --- Step 1: Miniconda ---
+echo ""
+echo "[1/5] Installing miniconda..."
+if [ ! -d "/opt/conda" ]; then
+    wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
+    bash /tmp/miniconda.sh -b -p /opt/conda
+    rm /tmp/miniconda.sh
+else
+    echo "Miniconda already installed at /opt/conda — skipping."
 fi
 
-NAME="$1"
+# Add conda to PATH for this shell session
+export PATH="/opt/conda/bin:$PATH"
 
-# Reject names with slashes or whitespace
-if [[ "$NAME" =~ [[:space:]/] ]]; then
-    echo "ERROR: Name cannot contain spaces or slashes."
-    echo "Got: '$NAME'"
-    exit 1
+# Persist the PATH change for future SSH sessions
+if ! grep -q "/opt/conda/bin" ~/.bashrc; then
+    echo 'export PATH="/opt/conda/bin:$PATH"' >> ~/.bashrc
 fi
 
-# --- Activate the conda env automatically ---
-if [ ! -f "/opt/conda/etc/profile.d/conda.sh" ]; then
-    echo "ERROR: Conda not found. Did you run setup.sh first?"
-    exit 1
+# Accept Anaconda Terms of Service (required for conda install commands)
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+
+# --- Step 2: Create the conda env & activate it ---
+echo ""
+echo "[2/5] Creating nerfstudio conda env (conda-forge only)..."
+if ! conda env list | grep -qE "^nerfstudio\s"; then
+    conda create -n nerfstudio python=3.8 pip -c conda-forge --override-channels -y
+else
+    echo "Env 'nerfstudio' already exists — skipping."
 fi
 
+# Activate the env for the remainder of this script
 source /opt/conda/etc/profile.d/conda.sh
 conda activate nerfstudio
 
-# --- Configuration ---
-INPUT_VIDEO="/workspace/videos/${NAME}.mp4"
-PROJECT_DIR="/workspace/projects/${NAME}"
-PROCESSED_DIR="${PROJECT_DIR}/processed"
-TRAINING_DIR="${PROJECT_DIR}/training"
-TEMP_EXPORT="${PROJECT_DIR}/export"
-EXPORT_DIR="/workspace/exports"
-NUM_FRAMES=300
-ITERATIONS=30000
+# Upgrade pip inside the new env
+python -m pip install --upgrade pip
 
-# --- Sanity checks ---
-if [ ! -f "$INPUT_VIDEO" ]; then
-    echo "ERROR: No video found at $INPUT_VIDEO"
-    echo "Did you run 'bash download.sh <url> $NAME' first?"
-    exit 1
-fi
-
-if ! command -v ns-train &> /dev/null; then
-    echo "ERROR: nerfstudio not found. Did you run setup.sh first?"
-    exit 1
-fi
-
-if ! nvidia-smi &> /dev/null; then
-    echo "ERROR: No GPU detected. This pipeline requires an NVIDIA GPU."
-    exit 1
-fi
-
-# --- Make sure all output directories exist ---
-mkdir -p "$PROJECT_DIR"
-mkdir -p "$EXPORT_DIR"
-
-echo "=========================================="
-echo "  Processing: $NAME"
-echo "=========================================="
-echo "  Input:  $INPUT_VIDEO"
-echo "  Output: ${EXPORT_DIR}/${NAME}.ply"
+# --- Step 3: System packages (ffmpeg, build tools — NOT colmap, installed via conda below) ---
 echo ""
+echo "[3/5] Installing system packages..."
+apt-get update -qq
+apt-get install -y --no-install-recommends \
+    ffmpeg \
+    git \
+    wget \
+    build-essential \
+    libgl1 \
+    libglib2.0-0
+rm -rf /var/lib/apt/lists/*
 
-# --- Step 1: COLMAP processing (extract frames + camera poses) ---
-# --no-gpu disables GPU SIFT which requires an OpenGL context unavailable
-# on headless servers — without this flag COLMAP crashes immediately.
-echo "[1/3] Processing video with COLMAP (CPU SIFT)..."
-ns-process-data video \
-    --data "$INPUT_VIDEO" \
-    --output-dir "$PROCESSED_DIR" \
-    --num-frames-target "$NUM_FRAMES" \
-    --no-gpu
+# Install COLMAP from conda-forge — this build includes CUDA SIFT support
+# and does NOT require an OpenGL/display context, so it works headless on RunPod.
+# (The apt version uses OpenGL for GPU SIFT and crashes without a display.)
+echo "Installing COLMAP from conda-forge (CUDA-enabled, headless-compatible)..."
+conda install -c conda-forge colmap -y
 
-# --- Step 2: Train splatfacto ---
+# --- Step 4: Install PyTorch, CUDA toolkit, tinycudann ---
 echo ""
-echo "[2/3] Training splatfacto for $ITERATIONS iterations..."
-ns-train splatfacto \
-    --data "$PROCESSED_DIR" \
-    --output-dir "$TRAINING_DIR" \
-    --max-num-iterations "$ITERATIONS" \
-    --pipeline.model.num-downscales 0 \
-    --viewer.quit-on-train-completion True
+echo "[4/5] Installing PyTorch, CUDA toolkit, and tinycudann..."
 
-# --- Step 3: Export the .ply ---
+# PyTorch
+pip install torch==2.1.2+cu118 torchvision==0.16.2+cu118 \
+    --extra-index-url https://download.pytorch.org/whl/cu118
+
+# Conda CUDA toolkit (required for building tinycudann)
+conda install -c "nvidia/label/cuda-11.8.0" cuda-toolkit -y
+
+# tinycudann
+pip install ninja git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
+
+# --- Step 5: Install nerfstudio ---
 echo ""
-echo "[3/3] Exporting .ply..."
+echo "[5/5] Installing nerfstudio..."
+pip install nerfstudio
+pip install gdown   # for downloading videos from Google Drive
 
-# Find the latest config.yml that nerfstudio just wrote for THIS project's training
-LATEST_CONFIG=$(find "$TRAINING_DIR" -name "config.yml" -type f -printf '%T@ %p\n' \
-    | sort -n | tail -1 | cut -d' ' -f2)
-
-if [ -z "$LATEST_CONFIG" ]; then
-    echo "ERROR: No trained config found. Training may have failed."
-    echo "Check $TRAINING_DIR for output."
-    exit 1
-fi
-
-mkdir -p "$TEMP_EXPORT"
-
-ns-export gaussian-splat \
-    --load-config "$LATEST_CONFIG" \
-    --output-dir "$TEMP_EXPORT"
-
-# Find whatever .ply got produced (defensive — in case the filename differs across versions)
-PRODUCED_PLY=$(find "$TEMP_EXPORT" -maxdepth 1 -name "*.ply" -type f | head -1)
-
-if [ -z "$PRODUCED_PLY" ]; then
-    echo "ERROR: Export step did not produce a .ply file."
-    echo "Contents of $TEMP_EXPORT:"
-    ls -la "$TEMP_EXPORT"
-    exit 1
-fi
-
-# Move/rename the produced .ply to the named final location
-FINAL_PLY="${EXPORT_DIR}/${NAME}.ply"
-mv "$PRODUCED_PLY" "$FINAL_PLY"
+# Create workspace directories
+mkdir -p /workspace/videos
+mkdir -p /workspace/projects
+mkdir -p /workspace/exports
 
 echo ""
 echo "=========================================="
-echo "  DONE — ${NAME}.ply"
+echo "  Setup complete!"
 echo "=========================================="
-ls -lh "$FINAL_PLY"
 echo ""
-echo "Download from: $FINAL_PLY"
+echo "Next steps:"
+echo "  1. Download a video:"
+echo "     bash download.sh \"<google-drive-url>\" <name>"
+echo ""
+echo "  2. Process it:"
+echo "     bash run_splat.sh <name>"
+echo ""
+echo "  3. Find your .ply in /workspace/exports/<name>.ply"
 echo ""
