@@ -54,12 +54,11 @@ conda activate nerfstudio
 # Upgrade pip inside the new env
 python -m pip install --upgrade pip
 
-# --- Step 3: System packages (colmap, ffmpeg, etc.) ---
+# --- Step 3: System packages (ffmpeg, build tools — NOT colmap, installed via conda below) ---
 echo ""
 echo "[3/5] Installing system packages..."
 apt-get update -qq
 apt-get install -y --no-install-recommends \
-    colmap \
     ffmpeg \
     git \
     wget \
@@ -67,6 +66,17 @@ apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0
 rm -rf /var/lib/apt/lists/*
+
+# Install COLMAP 3.8 from conda-forge — this build includes CUDA SIFT support
+# and does NOT require an OpenGL/display context, so it works headless on RunPod.
+# Pinned to 3.8 because nerfstudio internally calls COLMAP with --SiftExtraction.use_gpu
+# which matches 3.8's flag names (3.9+ renamed it to --FeatureExtraction.use_gpu).
+echo "Installing COLMAP 3.8 from conda-forge (CUDA-enabled, headless-compatible)..."
+conda install -c conda-forge colmap=3.8 -y
+
+# Install faiss-gpu — required dependency for COLMAP to load correctly
+echo "Installing faiss-gpu..."
+conda install -c conda-forge faiss-gpu -y
 
 # --- Step 4: Install PyTorch, CUDA toolkit, tinycudann ---
 echo ""
@@ -86,7 +96,7 @@ pip install ninja git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindi
 echo ""
 echo "[5/5] Installing nerfstudio..."
 pip install nerfstudio
-pip install gdown   # useful for downloading videos from Google Drive
+pip install gdown   # for downloading videos from Google Drive
 
 # Create workspace directories
 mkdir -p /workspace/videos
