@@ -76,8 +76,9 @@ pip install torch==2.1.2+cu118 torchvision==0.16.2+cu118 \
 conda install -c "nvidia/label/cuda-11.8.0" cuda-toolkit -y
 # Ensure setuptools includes pkg_resources (required by tinycudann)
 pip install 'setuptools==69.5.1'
-# tinycudann
-pip install ninja git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
+# tinycudann — installed without build isolation so it uses our setuptools
+pip install ninja
+pip install --no-build-isolation git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
 # --- Step 5: Install nerfstudio ---
 echo ""
 echo "[5/5] Installing nerfstudio..."
