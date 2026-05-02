@@ -51,7 +51,7 @@ PROCESSED_DIR="${PROJECT_DIR}/processed"
 TRAINING_DIR="${PROJECT_DIR}/training"
 TEMP_EXPORT="${PROJECT_DIR}/export"
 EXPORT_DIR="/workspace/exports"
-NUM_FRAMES=500
+NUM_FRAMES=150
 ITERATIONS=50000
 
 # --- Sanity checks ---
