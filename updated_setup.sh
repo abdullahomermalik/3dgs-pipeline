@@ -5,8 +5,8 @@
 #   runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04
 #
 # Usage:
-#   wget https://raw.githubusercontent.com/abdullahomermalik/3dgs-pipeline/main/setup.sh
-#   bash setup.sh
+#   wget https://raw.githubusercontent.com/abdullahomermalik/3dgs-pipeline/main/updated_setup.sh
+#   bash updated_setup.sh
 set -e
 set -u
 echo "=========================================="
@@ -44,7 +44,7 @@ source /opt/conda/etc/profile.d/conda.sh
 conda activate nerfstudio
 # Upgrade pip inside the new env
 python -m pip install --upgrade pip
-# --- Step 3: System packages (ffmpeg, build tools — NOT colmap, installed via conda below) ---
+# --- Step 3: System packages (ffmpeg, build tools, bc for frame math) ---
 echo ""
 echo "[3/5] Installing system packages..."
 apt-get update -qq
@@ -54,7 +54,8 @@ apt-get install -y --no-install-recommends \
     wget \
     build-essential \
     libgl1 \
-    libglib2.0-0
+    libglib2.0-0 \
+    bc
 rm -rf /var/lib/apt/lists/*
 # Install COLMAP 3.9 from conda-forge — this build includes CUDA SIFT support
 # and does NOT require an OpenGL/display context, so it works headless on RunPod.
@@ -73,11 +74,15 @@ pip install torch==2.1.2+cu118 torchvision==0.16.2+cu118 \
     --extra-index-url https://download.pytorch.org/whl/cu118
 # Conda CUDA toolkit (required for building tinycudann)
 conda install -c "nvidia/label/cuda-11.8.0" cuda-toolkit -y
+# Ensure setuptools includes pkg_resources (required by tinycudann)
+pip install 'setuptools==69.5.1'
 # tinycudann
 pip install ninja git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
 # --- Step 5: Install nerfstudio ---
 echo ""
 echo "[5/5] Installing nerfstudio..."
+# Fix distutils blinker conflict before installing nerfstudio
+pip install --ignore-installed blinker flask
 pip install nerfstudio
 pip install gdown   # for downloading videos from Google Drive
 # Create workspace directories
