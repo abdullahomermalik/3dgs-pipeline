@@ -51,8 +51,8 @@ PROCESSED_DIR="${PROJECT_DIR}/processed"
 TRAINING_DIR="${PROJECT_DIR}/training"
 TEMP_EXPORT="${PROJECT_DIR}/export"
 EXPORT_DIR="/workspace/exports"
-NUM_FRAMES=300
-ITERATIONS=30000
+NUM_FRAMES=500
+ITERATIONS=50000
 
 # --- Sanity checks ---
 if [ ! -f "$INPUT_VIDEO" ]; then
@@ -111,7 +111,7 @@ echo "COLMAP registered $FRAME_COUNT frames — OK."
 # --- Step 2: Train splatfacto ---
 echo ""
 echo "[2/3] Training splatfacto for $ITERATIONS iterations..."
-ns-train splatfacto \
+ns-train splatfacto-big \
     --data "$PROCESSED_DIR" \
     --output-dir "$TRAINING_DIR" \
     --max-num-iterations "$ITERATIONS" \
