@@ -51,7 +51,28 @@ PROCESSED_DIR="${PROJECT_DIR}/processed"
 TRAINING_DIR="${PROJECT_DIR}/training"
 TEMP_EXPORT="${PROJECT_DIR}/export"
 EXPORT_DIR="/workspace/exports"
-NUM_FRAMES=150
+
+# --- Dynamic frame count (3 × video length in seconds, bounded) ---
+DURATION=$(ffprobe -v error -show_entries format=duration \
+    -of default=noprint_wrappers=1:nokey=1 "$INPUT_VIDEO")
+# Fallback to 300 if duration can't be read
+if [ -z "$DURATION" ]; then
+    echo "WARNING: Could not read video duration. Falling back to 300 frames."
+    NUM_FRAMES=300
+else
+    # Multiply by 3 (Nerfstudio recommendation) and round to nearest integer
+    RAW=$(echo "$DURATION * 3" | bc -l)
+    NUM_FRAMES=$(printf "%.0f" "$RAW")
+
+    # Enforce bounds: at least 30, at most 300
+    if [ "$NUM_FRAMES" -lt 30 ]; then
+        NUM_FRAMES=30
+    elif [ "$NUM_FRAMES" -gt 300 ]; then
+        NUM_FRAMES=300
+    fi
+fi
+echo "Video duration: ${DURATION}s → using $NUM_FRAMES frames"
+
 ITERATIONS=50000
 
 # --- Sanity checks ---
@@ -108,9 +129,9 @@ fi
 
 echo "COLMAP registered $FRAME_COUNT frames — OK."
 
-# --- Step 2: Train splatfacto ---
+# --- Step 2: Train splatfacto-big ---
 echo ""
-echo "[2/3] Training splatfacto for $ITERATIONS iterations..."
+echo "[2/3] Training splatfacto-big for $ITERATIONS iterations..."
 ns-train splatfacto-big \
     --data "$PROCESSED_DIR" \
     --output-dir "$TRAINING_DIR" \
