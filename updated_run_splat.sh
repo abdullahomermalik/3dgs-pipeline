@@ -140,7 +140,7 @@ ns-train splatfacto-big \
     --output-dir "$TRAINING_DIR" \
     --max-num-iterations "$ITERATIONS" \
     --pipeline.model.num-downscales 0 \
-    --vis tensorboard
+    --vis viewer
 
 # --- Step 3: Export the .ply ---
 echo ""
