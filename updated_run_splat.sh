@@ -52,34 +52,25 @@ TRAINING_DIR="${PROJECT_DIR}/training"
 TEMP_EXPORT="${PROJECT_DIR}/export"
 EXPORT_DIR="/workspace/exports"
 
-# --- Dynamic frame count (3 × video length in seconds for short videos,
-#     then 1 fps for longer ones, with absolute cap at 1000 frames) ---
+# --- Dynamic frame count ---
+#   ≤ 3 minutes (180s) → always 300 frames
+#   > 3 minutes         → 1 frame per second (min 30, max 1000)
 DURATION=$(ffprobe -v error -show_entries format=duration \
     -of default=noprint_wrappers=1:nokey=1 "$INPUT_VIDEO")
-# Fallback to 300 if duration can't be read
 if [ -z "$DURATION" ]; then
     echo "WARNING: Could not read video duration. Falling back to 300 frames."
     NUM_FRAMES=300
 else
-    # Multiply by 3 (Nerfstudio recommendation) and round to nearest integer
-    RAW=$(echo "$DURATION * 3" | bc -l)
-    NUM_FRAMES=$(printf "%.0f" "$RAW")
-
-    # Enforce bounds: at least 30, at most a duration‑aware maximum
-    if [ "$NUM_FRAMES" -lt 30 ]; then
-        NUM_FRAMES=30
+    DURATION_INT=${DURATION%.*}   # remove fractional part for integer comparison
+    if [ "$DURATION_INT" -le 180 ]; then
+        NUM_FRAMES=300
     else
-        # Maximum frames depends on video length
-        MAX_FRAMES=300
-        # If the video is longer than 5 minutes (300 seconds), we allow up to 1 fps
-        if [ "${DURATION%.*}" -gt 300 ]; then
-            MAX_FRAMES=$(printf "%.0f" "$DURATION")   # 1 frame per second
-            if [ "$MAX_FRAMES" -gt 1000 ]; then
-                MAX_FRAMES=1000   # absolute safety cap
-            fi
-        fi
-        if [ "$NUM_FRAMES" -gt "$MAX_FRAMES" ]; then
-            NUM_FRAMES=$MAX_FRAMES
+        # 1 frame per second
+        NUM_FRAMES=$(printf "%.0f" "$DURATION")
+        if [ "$NUM_FRAMES" -lt 30 ]; then
+            NUM_FRAMES=30
+        elif [ "$NUM_FRAMES" -gt 1000 ]; then
+            NUM_FRAMES=1000
         fi
     fi
 fi
