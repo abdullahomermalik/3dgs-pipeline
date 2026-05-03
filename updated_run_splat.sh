@@ -140,7 +140,8 @@ ns-train splatfacto-big \
     --output-dir "$TRAINING_DIR" \
     --max-num-iterations "$ITERATIONS" \
     --pipeline.model.num-downscales 0 \
-    --vis viewer
+    --vis viewer \
+    --viewer.quit-on-train-completion True
 
 # --- Step 3: Export the .ply ---
 echo ""
