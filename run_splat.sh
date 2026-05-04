@@ -99,11 +99,12 @@ echo ""
 # --- Step 1: COLMAP processing (extract frames + camera poses) ---
 # GPU SIFT is now enabled — the conda-forge COLMAP build uses CUDA directly
 # and does not need an OpenGL context, so it works on headless RunPod servers.
-echo "[1/3] Processing video with COLMAP (GPU SIFT)..."
+echo "[1/3] Processing video with COLMAP (GPU SIFT + sequential matching)..."
 ns-process-data video \
     --data "$INPUT_VIDEO" \
     --output-dir "$PROCESSED_DIR" \
-    --num-frames-target "$NUM_FRAMES"
+    --num-frames-target "$NUM_FRAMES" \
+    --matching-method sequential
 
 # Check COLMAP registered enough frames — ns-process-data can exit 0
 # even if COLMAP only matched a tiny fraction of the input frames.
