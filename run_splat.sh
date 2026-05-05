@@ -52,21 +52,33 @@ TRAINING_DIR="${PROJECT_DIR}/training"
 TEMP_EXPORT="${PROJECT_DIR}/export"
 EXPORT_DIR="/workspace/exports"
 
-# --- Dynamic frame count (official Nerfstudio recommendation) ---
-#   Formula:  NUM_FRAMES = 3 × duration (seconds)
-#   Hard clamp: minimum 100, maximum 1000
+# --- Dynamic frame count (universal – works for rooms and outdoors) ---
+#   Short videos (≤3 min): 3 × duration (minimum 100)
+#   Long videos (>3 min):  1 frame per second, capped at 600
 DURATION=$(ffprobe -v error -show_entries format=duration \
     -of default=noprint_wrappers=1:nokey=1 "$INPUT_VIDEO")
 if [ -z "$DURATION" ]; then
     echo "WARNING: Could not read video duration. Falling back to 300 frames."
     NUM_FRAMES=300
 else
-    NUM_FRAMES=$(echo "$DURATION * 3" | bc | cut -d. -f1)
-    NUM_FRAMES=$(( NUM_FRAMES < 100 ? 100 : NUM_FRAMES > 1000 ? 1000 : NUM_FRAMES ))
+    DURATION_INT=${DURATION%.*}
+    if [ "$DURATION_INT" -le 180 ]; then
+        # Short video: 3× duration, but at least 100
+        NUM_FRAMES=$(echo "$DURATION * 3" | bc | cut -d. -f1)
+        if [ "$NUM_FRAMES" -lt 100 ]; then
+            NUM_FRAMES=100
+        fi
+    else
+        # Long video: 1 fps, capped at 600
+        NUM_FRAMES=$(printf "%.0f" "$DURATION")
+        if [ "$NUM_FRAMES" -gt 600 ]; then
+            NUM_FRAMES=600
+        fi
+    fi
 fi
 echo "Video duration: ${DURATION}s → using $NUM_FRAMES frames"
 
-ITERATIONS=50000
+ITERATIONS=30000
 
 # --- Sanity checks ---
 if [ ! -f "$INPUT_VIDEO" ]; then
